@@ -1,0 +1,136 @@
+Only in jimmix-ng/: backpipe
+diff -ruNBbw -x '*.jar' -x jimmix.sh jimmix/src/core/jimmix/action/BruteforceObjectNameAction.java jimmix-ng/src/core/jimmix/action/BruteforceObjectNameAction.java
+--- jimmix/src/core/jimmix/action/BruteforceObjectNameAction.java	2013-03-22 03:27:32.000000000 +1100
++++ jimmix-ng/src/core/jimmix/action/BruteforceObjectNameAction.java	2013-11-13 01:05:03.000000000 +1100
+@@ -30,14 +30,26 @@
+ 		String start = this.pattern;
+ 		String end = "";
+ 		if(pattern.contains("JIMMX")) {
+-			start = this.pattern.split("JIMMX")[0];
+-			end = this.pattern.split("JIMMX")[1];
++		    String jimmxray[] = this.pattern.split("JIMMX");
++			start = jimmxray[0];
++			if (jimmxray.length > 1) {
++			    end = jimmxray[1];
++			}
++			else {
++			    end = "";
++			}
+ 		}
+ 	
+ 		boolean done = false;
+ 		Log.log("bruteforce in progress, please wait...");
+ 		while(!done) {
+ 			// test if start + end = found
++		        Log.log("Bruteforcing path => " + start + "*" + end);
++			this.proxy.queryNames(new ObjectName(start + "*" + end), null);
++			if(Integer.parseInt(System.getProperty("jimmX.response.content_length")) == this.notFoundContentLength) {
++			    Log.log("No need to bruteforce as it is not a valid path: " + start + "*" + end + " <=> " + this.notFoundContentLength + " against " + Integer.parseInt(System.getProperty("jimmX.response.content_length")) );
++			    return;
++			}
+ 			this.proxy.queryNames(new ObjectName(start+end), null);
+ 			if(Integer.parseInt(System.getProperty("jimmX.response.content_length")) != this.notFoundContentLength) {
+ 				done = true;
+@@ -45,6 +57,10 @@
+ 				// else -> bruteforce the next char from the end to the start
+ 				for(int i = 0; i < charList.length(); i++) {
+ 					char currentChar = charList.charAt(i);
++					// if (currentChar == ':'|| currentChar == '=' ) {
++					//    continue;
++					// }
++					Log.log("Bruteforcing: " + start + "*" + currentChar + end);
+ 					this.proxy.queryNames(new ObjectName(start+ "*" + currentChar + end), null);
+ 					if(Integer.parseInt(System.getProperty("jimmX.response.content_length")) != this.notFoundContentLength) {
+ 						// we found a char
+diff -ruNBbw -x '*.jar' -x jimmix.sh jimmix/src/core/jimmix/action/QueryNamesAction.java jimmix-ng/src/core/jimmix/action/QueryNamesAction.java
+--- jimmix/src/core/jimmix/action/QueryNamesAction.java	2013-03-22 03:27:32.000000000 +1100
++++ jimmix-ng/src/core/jimmix/action/QueryNamesAction.java	2013-11-13 01:26:14.000000000 +1100
+@@ -23,7 +23,7 @@
+ 	}
+ 
+ 	public void invoke() throws Exception {
+-		Log.log("trying to find " + this.mbean.getCanonicalName() + ""); 
++		Log.log("Trying to find " + this.mbean.getCanonicalName() + "");
+ 		Set<ObjectName> result = this.proxy.queryNames(mbean, query);
+ 
+ 		if(result != null) {
+@@ -34,8 +34,7 @@
+ 				System.out.println(objname.getCanonicalName());
+ 			}
+ 		} else {
+-			Log.error("no match found");
++			Log.error("No match found (Content-Length: " + Integer.parseInt(System.getProperty("jimmX.response.content_length"))  + ")");
+ 		}
+-		
+ 	}
+ }
+diff -ruNBbw -x '*.jar' -x jimmix.sh jimmix/src/core/jimmix/console/CommandLineParser.java jimmix-ng/src/core/jimmix/console/CommandLineParser.java
+--- jimmix/src/core/jimmix/console/CommandLineParser.java	2013-04-03 01:48:56.000000000 +1100
++++ jimmix-ng/src/core/jimmix/console/CommandLineParser.java	2013-11-13 08:55:49.000000000 +1100
+@@ -31,6 +31,7 @@
+     	private static CmdLineParser.Option userOption;
+     	private static CmdLineParser.Option passwordOption;
+     	private static CmdLineParser.Option methodOption;
++    	private static CmdLineParser.Option hostOption;
+     	private static CmdLineParser.Option invokeSignatureOption;
+ 
+ 	public static Hashtable parseOptions(String args[]) throws Exception {
+@@ -41,6 +42,7 @@
+     	    	userOption = parser.addStringOption('u', "user");
+     	    	passwordOption = parser.addStringOption('p', "password");
+     	    	methodOption = parser.addStringOption('m', "method");
++    	    	hostOption = parser.addStringOption('H', "host");
+     	    	invokeSignatureOption = parser.addStringOption('s', "signature");
+ 
+     	    	try {
+@@ -89,6 +91,9 @@
+     	    	// setting the http method
+     	    	System.setProperty("jimmX.request.method", (String)parser.getOptionValue(methodOption, "POST"));
+ 
++    	    	// setting the host
++    	    	System.setProperty("jimmX.request.host", (String)parser.getOptionValue(hostOption, "127.0.0.1"));
++
+ 		// create the action
+ 		createAction();
+ 
+diff -ruNBbw -x '*.jar' -x jimmix.sh jimmix/src/core/jimmix/Run.java jimmix-ng/src/core/jimmix/Run.java
+--- jimmix/src/core/jimmix/Run.java	2013-04-03 01:48:56.000000000 +1100
++++ jimmix-ng/src/core/jimmix/Run.java	2013-11-13 09:15:21.000000000 +1100
+@@ -19,6 +19,9 @@
+ 	public static void main(String args[]) {
+ 
+ 		try{
++			// To ensure we can modify the Host header
++			System.setProperty("sun.net.http.allowRestrictedHeaders", "true");
++
+ 			Hashtable command = CommandLineParser.parseOptions(args);
+ 			((Action) command.get("action")).invoke();
+   	  	} catch (Exception e) {
+diff -ruNBbw -x '*.jar' -x jimmix.sh jimmix/src/lib/org/jboss/invocation/http/interfaces/Util.java jimmix-ng/src/lib/org/jboss/invocation/http/interfaces/Util.java
+--- jimmix/src/lib/org/jboss/invocation/http/interfaces/Util.java	2013-04-03 01:48:56.000000000 +1100
++++ jimmix-ng/src/lib/org/jboss/invocation/http/interfaces/Util.java	2013-11-13 09:13:57.000000000 +1100
+@@ -52,6 +52,9 @@
+ import patch.http.LaxHttpURLConnection;
+ import patch.https.LaxHttpsURLConnection;
+ 
++import jimmix.util.Log;
++
++
+ /** Common client utility methods
+  *
+  * @author Scott.Stark@jboss.org
+@@ -194,8 +197,12 @@
+       String method = System.getProperty("jimmX.request.method");
+       if(method != null) {
+ 	 conn.setRequestMethod(method);
+-      } else {
+-         conn.setRequestMethod("POST");
++      }
++
++      String host = System.getProperty("jimmX.request.host");
++      Log.log("Required Host: " + host);
++      if(host != null) {
++	  conn.setRequestProperty("Host", host);
+       }
+ 
+       /* PATCH: call a patched getOutputStream method */

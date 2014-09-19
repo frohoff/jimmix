@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+
+<project name="jimmix" default="dist" basedir=".">
+
+<path id="classpath">
+   <pathelement location="build"/>
+   <fileset dir="${basedir}/lib">
+       <include name="*.jar"/>
+   </fileset>
+</path>
+
+<path id="client.classpath">
+   <path refid="classpath"/>
+</path>
+
+<target name="compile" description="Compile the source">
+   <delete dir="build"/>
+   <mkdir dir="build"/>
+   <javac destdir="build"
+          debug="on"
+          deprecation="on"
+          optimize="on"
+          classpathref="classpath"
+	  includeantruntime="false"
+	  source="1.6" target="1.6">
+      <src path="src/core"/>
+   </javac>
+
+   <delete dir="build_lib"/>
+   <mkdir dir="build_lib" />
+   <javac destdir="build_lib"
+          debug="on"
+          deprecation="on"
+          optimize="on"
+          classpathref="classpath"
+	  includeantruntime="false"
+	  source="1.6" target="1.6">
+      <src path="src/lib" />
+   </javac>
+</target>
+
+<target name="dist" depends="compile" description="Package the application">
+   <delete dir="dist"/>
+   <mkdir dir="dist"/>
+   <mkdir dir="dist/bin"/>
+   <mkdir dir="dist/lib"/>
+   
+   <copy todir="dist/bin">
+      <fileset dir="src/bash"/>
+   </copy>
+
+   <chmod file="dist/bin/jimmix.sh" perm="ugo+rx"/>
+
+   <copy todir="dist/lib">
+      <fileset dir="lib"/>
+   </copy>
+
+   <jar jarfile="dist/lib/0patch.jar" basedir="build_lib"/> 
+   <jar jarfile="dist/bin/${ant.project.name}.jar" basedir="build"/>
+   <delete dir="build"/>
+   <delete dir="build_lib"/>
+</target>
+
+</project>
